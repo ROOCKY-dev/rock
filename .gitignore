@@ -1,0 +1,24 @@
+# Gradle
+.gradle
+build/
+!src/*/resources/
+!src/*/java/
+
+# IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Eclipse
+.settings/
+.classpath
+.project
+bin/
+
+# VS Code
+.vscode/
+
+# Fabric
+run/
+.fabric/

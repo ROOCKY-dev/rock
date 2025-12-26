@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "package": "com.roocky.foundation.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "MixinServerPlayerGameMode",
+    "MixinBlockItem",
+    "MixinServerPlayerEntity",
+    "MixinExplosion",
+    "MixinServerPlayerGameModeInteract"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
