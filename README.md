@@ -18,7 +18,7 @@
   - **Verbose Debug**: Console logging for every permission check to trace issues.
   - **Bypass Mode**: Allow staff to override protections seamlessly.
 
-## Commands
+# # Commands
 
 | Command | Permission | Description |
 | :--- | :--- | :--- |

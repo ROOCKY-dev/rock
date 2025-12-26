@@ -20,7 +20,7 @@ import com.roocky.foundation.api.service.PermissionProvider;
 public class MyNationsMod implements ModInitializer {
     @Override
     public void onInitialize() {
-        // Inject your custom logic
+        // Inject your custom logics
         RockAPI.setProvider(new MyNationsProvider());
     }
 }
