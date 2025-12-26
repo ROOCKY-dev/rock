@@ -39,6 +39,10 @@ public class SimpleConfig {
             save();
         }
     }
+    
+    public static void reload() {
+        load();
+    }
 
     public static void save() {
         try {

@@ -17,6 +17,9 @@
   "entrypoints": {
     "main": [
       "com.roocky.foundation.RockMod"
+    ],
+    "client": [
+      "com.roocky.foundation.client.RockClient"
     ]
   },
   "mixins": [

@@ -20,4 +20,39 @@ public class MixinServerPlayerEntity {
             ci.cancel();
         }
     }
+    @org.spongepowered.asm.mixin.Unique
+    private int rock$lastChunkX = Integer.MIN_VALUE;
+    @org.spongepowered.asm.mixin.Unique
+    private int rock$lastChunkZ = Integer.MIN_VALUE;
+
+    @Inject(method = "tick", at = @At("HEAD"))
+    private void rock$onTick(CallbackInfo ci) {
+        ServerPlayerEntity player = (ServerPlayerEntity) (Object) this;
+        // Skip tracking if player not fully joined or logic invalid
+        if (player.getWorld() == null) return;
+        
+        int currentChunkX = player.getChunkPos().x;
+        int currentChunkZ = player.getChunkPos().z;
+
+        if (rock$lastChunkX == Integer.MIN_VALUE) {
+            // First tick initialization
+            rock$lastChunkX = currentChunkX;
+            rock$lastChunkZ = currentChunkZ;
+            // Fire enter for initial spawn/login chunk
+            ClaimEvents.ENTER_CHUNK.invoker().onChunkChange(player, player.getWorld(), new net.minecraft.util.math.ChunkPos(currentChunkX, currentChunkZ));
+            return;
+        }
+
+        if (currentChunkX != rock$lastChunkX || currentChunkZ != rock$lastChunkZ) {
+            // Player moved chunks
+            net.minecraft.util.math.ChunkPos oldPos = new net.minecraft.util.math.ChunkPos(rock$lastChunkX, rock$lastChunkZ);
+            net.minecraft.util.math.ChunkPos newPos = new net.minecraft.util.math.ChunkPos(currentChunkX, currentChunkZ);
+            
+            ClaimEvents.EXIT_CHUNK.invoker().onChunkChange(player, player.getWorld(), oldPos);
+            ClaimEvents.ENTER_CHUNK.invoker().onChunkChange(player, player.getWorld(), newPos);
+            
+            rock$lastChunkX = currentChunkX;
+            rock$lastChunkZ = currentChunkZ;
+        }
+    }
 }

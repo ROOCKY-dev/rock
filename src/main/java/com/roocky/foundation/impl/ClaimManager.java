@@ -5,13 +5,16 @@ import com.roocky.foundation.api.model.ClaimPermission;
 import com.roocky.foundation.api.model.ClaimType;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtList;
+import net.minecraft.nbt.NbtString;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.PersistentState;
 
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public class ClaimManager extends PersistentState {
@@ -48,15 +51,21 @@ public class ClaimManager extends PersistentState {
             claimTag.putUuid("Owner", entry.getValue().getOwner());
             claimTag.putString("Type", entry.getValue().getType().name());
             
-            // Save trusted players
+            // Save permissions
             if (entry.getValue() instanceof ClaimImpl impl) {
-                NbtList trustedList = new NbtList();
-                for (UUID trusted : impl.trusted) {
-                    NbtCompound trustedTag = new NbtCompound();
-                    trustedTag.putUuid("UUID", trusted);
-                    trustedList.add(trustedTag);
+                NbtList permissionsList = new NbtList();
+                for (Map.Entry<UUID, Set<ClaimPermission>> permEntry : impl.permissions.entrySet()) {
+                    NbtCompound playerTag = new NbtCompound();
+                    playerTag.putUuid("UUID", permEntry.getKey());
+                    
+                    NbtList perms = new NbtList();
+                    for (ClaimPermission p : permEntry.getValue()) {
+                        perms.add(NbtString.of(p.name()));
+                    }
+                    playerTag.put("Perms", perms);
+                    permissionsList.add(playerTag);
                 }
-                claimTag.put("Trusted", trustedList);
+                claimTag.put("Permissions", permissionsList);
             }
             
             list.add(claimTag);
@@ -75,11 +84,41 @@ public class ClaimManager extends PersistentState {
             ClaimType type = ClaimType.valueOf(claimTag.getString("Type"));
             
             ClaimImpl claim = new ClaimImpl(owner, pos, type);
+            
+            // Migration Logic: Check for old "Trusted" list
             if (claimTag.contains("Trusted")) {
-                NbtList trustedList = claimTag.getList("Trusted", 10);
+                NbtList trustedList = claimTag.getList("Trusted", 10); // List of Compounds {UUID: ...}
                 for (int j = 0; j < trustedList.size(); j++) {
-                     claim.trusted.add(trustedList.getCompound(j).getUuid("UUID"));
+                     // Check if it's a compound or directly UUIDs (Legacy impl used Compound {UUID: ...})
+                     // Based on previous code: trustedTag.putUuid("UUID", trusted);
+                     UUID trustedUUID = trustedList.getCompound(j).getUuid("UUID");
+                     claim.grantAll(trustedUUID);
                 }
+            }
+            
+            // New Logic: "Permissions" list
+            if (claimTag.contains("Permissions")) {
+                 NbtList permList = claimTag.getList("Permissions", 10);
+                 for (int j = 0; j < permList.size(); j++) {
+                     NbtCompound playerTag = permList.getCompound(j);
+                     UUID playerUUID = playerTag.getUuid("UUID");
+                     
+                     NbtList perms = playerTag.getList("Perms", 8); // 8 = String
+                     if (perms.isEmpty()) {
+                         // Fallback or empty
+                         continue;
+                     }
+                     
+                     Set<ClaimPermission> granted = EnumSet.noneOf(ClaimPermission.class);
+                     for (int k = 0; k < perms.size(); k++) {
+                         try {
+                             granted.add(ClaimPermission.valueOf(perms.getString(k)));
+                         } catch (IllegalArgumentException ignored) {
+                             // Ignore invalid/old permissions
+                         }
+                     }
+                     claim.permissions.put(playerUUID, granted);
+                 }
             }
             
             manager.claims.put(pos, claim);
@@ -87,17 +126,22 @@ public class ClaimManager extends PersistentState {
         return manager;
     }
 
-    // Simple implementation of the Claim interface for storage
     public static class ClaimImpl implements Claim {
         private final UUID owner;
         private final ChunkPos pos;
         private final ClaimType type;
-        public final java.util.Set<UUID> trusted = new java.util.HashSet<>();
+        
+        // Granular Permissions Map
+        public final Map<UUID, Set<ClaimPermission>> permissions = new HashMap<>();
 
         public ClaimImpl(UUID owner, ChunkPos pos, ClaimType type) {
             this.owner = owner;
             this.pos = pos;
             this.type = type;
+        }
+
+        public void grantAll(UUID player) {
+            permissions.put(player, EnumSet.allOf(ClaimPermission.class));
         }
 
         @Override
@@ -114,8 +158,27 @@ public class ClaimManager extends PersistentState {
         public boolean hasPermission(UUID player, ClaimPermission permission) {
             if (player.equals(owner)) return true;
             if (type == ClaimType.WILDERNESS) return true;
-            if (type == ClaimType.ADMIN) return false; // Admin claims restricted by default
-            return trusted.contains(player);
+            if (type == ClaimType.ADMIN) return false; 
+            
+            Set<ClaimPermission> playerPerms = permissions.get(player);
+            return playerPerms != null && playerPerms.contains(permission);
+        }
+
+        @Override
+        public void grantPermission(UUID player, ClaimPermission permission) {
+            permissions.computeIfAbsent(player, k -> EnumSet.noneOf(ClaimPermission.class))
+                       .add(permission);
+        }
+
+        @Override
+        public void revokePermission(UUID player, ClaimPermission permission) {
+            Set<ClaimPermission> playerPerms = permissions.get(player);
+            if (playerPerms != null) {
+                playerPerms.remove(permission);
+                if (playerPerms.isEmpty()) {
+                    permissions.remove(player);
+                }
+            }
         }
 
         @Override

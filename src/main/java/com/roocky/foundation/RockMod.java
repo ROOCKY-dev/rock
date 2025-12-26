@@ -1,16 +1,16 @@
 package com.roocky.foundation;
 
 import com.roocky.foundation.api.event.ClaimEvents;
-import com.roocky.foundation.api.model.Claim;
 import com.roocky.foundation.api.model.ClaimPermission;
+import com.roocky.foundation.api.service.PermissionProvider;
 import com.roocky.foundation.config.SimpleConfig;
-import com.roocky.foundation.impl.ClaimManager;
 import net.fabricmc.api.ModInitializer;
+import net.minecraft.block.BlockState;
+import net.minecraft.inventory.Inventory;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.math.ChunkPos;
-import net.minecraft.world.World;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,28 +22,24 @@ public class RockMod implements ModInitializer {
     public void onInitialize() {
         LOGGER.info("ROCK key components initializing...");
         
-        // Load Config
         SimpleConfig.load();
-
-        // Register Commands
+        
+        // Networking Registration
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.playS2C().register(com.roocky.foundation.network.VisualPayload.ID, com.roocky.foundation.network.VisualPayload.CODEC);
+        
         com.roocky.foundation.command.ClaimCommand.register();
-
-        // Register Event Listeners
 
         // Block Break
         ClaimEvents.BLOCK_BREAK.register((player, world, pos) -> {
             if (world.isClient) return ActionResult.PASS;
-            if (player.hasPermissionLevel(2)) return ActionResult.PASS; // Op bypass
-
             ChunkPos chunkPos = new ChunkPos(pos);
-            ClaimManager manager = ClaimManager.get((net.minecraft.server.world.ServerWorld) world);
-            Claim claim = manager.getClaim(chunkPos);
-
-            if (claim != null) {
-                if (!claim.hasPermission(player.getUuid(), ClaimPermission.BREAK)) {
-                    sendFeedback(player, claim.getOwner().toString()); // Simple verification for now
-                    return ActionResult.FAIL;
-                }
+            
+            if (player instanceof ServerPlayerEntity serverPlayer) {
+                 PermissionProvider provider = RockAPI.getProvider();
+                 if (!provider.checkPermission(serverPlayer, chunkPos, ClaimPermission.BLOCK_BREAK)) {
+                     sendFeedback(serverPlayer, provider.getDenialMessage(serverPlayer, chunkPos));
+                     return ActionResult.FAIL;
+                 }
             }
             return ActionResult.PASS;
         });
@@ -51,76 +47,69 @@ public class RockMod implements ModInitializer {
         // Block Place
         ClaimEvents.BLOCK_PLACE.register((player, world, pos) -> {
             if (world.isClient) return ActionResult.PASS;
-            if (player.hasPermissionLevel(2)) return ActionResult.PASS;
-
             ChunkPos chunkPos = new ChunkPos(pos);
-            ClaimManager manager = ClaimManager.get((net.minecraft.server.world.ServerWorld) world);
-            Claim claim = manager.getClaim(chunkPos);
-
-            if (claim != null) {
-                if (!claim.hasPermission(player.getUuid(), ClaimPermission.PLACE)) {
-                    sendFeedback(player, claim.getOwner().toString());
-                    return ActionResult.FAIL;
-                }
+            
+            if (player instanceof ServerPlayerEntity serverPlayer) {
+                 PermissionProvider provider = RockAPI.getProvider();
+                 if (!provider.checkPermission(serverPlayer, chunkPos, ClaimPermission.BLOCK_PLACE)) {
+                     sendFeedback(serverPlayer, provider.getDenialMessage(serverPlayer, chunkPos));
+                     return ActionResult.FAIL;
+                 }
             }
             return ActionResult.PASS;
         });
 
-        // Block/Entity Interact
+        // Block Interact
         ClaimEvents.BLOCK_INTERACT.register((player, world, pos) -> {
             if (world.isClient) return ActionResult.PASS;
-            if (player.hasPermissionLevel(2)) return ActionResult.PASS;
-
             ChunkPos chunkPos = new ChunkPos(pos);
-            ClaimManager manager = ClaimManager.get((net.minecraft.server.world.ServerWorld) world);
-            Claim claim = manager.getClaim(chunkPos);
+            
+            if (player instanceof ServerPlayerEntity serverPlayer) {
+                BlockState state = world.getBlockState(pos);
+                // Check if container
+                boolean isContainer = state.hasBlockEntity() && 
+                                     (world.getBlockEntity(pos) instanceof Inventory || 
+                                      state.createScreenHandlerFactory(world, pos) != null);
 
-            if (claim != null) {
-                if (!claim.hasPermission(player.getUuid(), ClaimPermission.INTERACT)) {
-                    sendFeedback(player, claim.getOwner().toString());
-                    return ActionResult.FAIL;
-                }
+                ClaimPermission required = isContainer ? ClaimPermission.CONTAINER_OPEN : ClaimPermission.INTERACT_BLOCK;
+                
+                PermissionProvider provider = RockAPI.getProvider();
+                 if (!provider.checkPermission(serverPlayer, chunkPos, required)) {
+                     sendFeedback(serverPlayer, provider.getDenialMessage(serverPlayer, chunkPos));
+                     return ActionResult.FAIL;
+                 }
             }
             return ActionResult.PASS;
         });
         
+        // Entity Interact
         ClaimEvents.ENTITY_INTERACT.register((player, world, target) -> {
             if (world.isClient) return ActionResult.PASS;
-            if (player.hasPermissionLevel(2)) return ActionResult.PASS;
-
             ChunkPos chunkPos = new ChunkPos(target.getBlockPos());
-            ClaimManager manager = ClaimManager.get((net.minecraft.server.world.ServerWorld) world);
-            Claim claim = manager.getClaim(chunkPos);
-
-            if (claim != null) {
-                if (!claim.hasPermission(player.getUuid(), ClaimPermission.INTERACT)) {
-                    sendFeedback(player, claim.getOwner().toString());
-                    return ActionResult.FAIL;
-                }
+            
+            if (player instanceof ServerPlayerEntity serverPlayer) {
+                 PermissionProvider provider = RockAPI.getProvider();
+                 if (!provider.checkPermission(serverPlayer, chunkPos, ClaimPermission.INTERACT_ENTITY)) {
+                     sendFeedback(serverPlayer, provider.getDenialMessage(serverPlayer, chunkPos));
+                     return ActionResult.FAIL;
+                 }
             }
             return ActionResult.PASS;
         });
 
-        // Explosion
+        // Explosion (Logic remains here for now as it doesn't involve a player directly in the check permission method yet)
+        // Ideally we expand PermissionProvider to handle explosions, but the interface mandates a Player.
+        // For Phase 2, we keep Explosion logic "Hardcoded" to ClaimManager or add a new method to Provider later.
+        // Given instructions, we focus on Player permissions.
         ClaimEvents.EXPLOSION.register((world, explosion) -> {
             if (world.isClient) return ActionResult.PASS;
             if (SimpleConfig.get().enableExplosions) return ActionResult.PASS;
 
-            // Check if any affected block is in a claim
-            // Ideally we check specific blocks, but for now we can just check the center or iterate
-            // The mixin handles clearing blocks, so here we might want to check if the center is safe?
-            // Actually, the Mixin fires per explosion. We can iterate blocks in the mixin, but the event is passed the explosion.
-            // For this phase, let's just say "If explosion starts in claim, cancel it" OR rely on the mixin to clear blocks.
-            // BUT, our Mixin logic says: if event returns FAIL, mixin clears blocks.
-            // So we need to decide: do we return FAIL if *any* block is claimed?
-            // Simple approach: Check explosion center.
-            
             ChunkPos centerChunk = new ChunkPos(new net.minecraft.util.math.BlockPos((int)explosion.getPosition().x, (int)explosion.getPosition().y, (int)explosion.getPosition().z));
-            ClaimManager manager = ClaimManager.get((net.minecraft.server.world.ServerWorld) world);
-            Claim claim = manager.getClaim(centerChunk);
+            com.roocky.foundation.impl.ClaimManager manager = com.roocky.foundation.impl.ClaimManager.get((net.minecraft.server.world.ServerWorld) world);
+            com.roocky.foundation.api.model.Claim claim = manager.getClaim(centerChunk);
             
             if (claim != null) {
-               // Explosion in claim
                if (claim.getType() != com.roocky.foundation.api.model.ClaimType.WILDERNESS) {
                    return ActionResult.FAIL; 
                }
@@ -128,12 +117,10 @@ public class RockMod implements ModInitializer {
             return ActionResult.PASS;
         });
         
-        LOGGER.info("ROCK fully initialized.");
+        LOGGER.info("ROCK fully initialized (API Mode).");
     }
     
-    private void sendFeedback(net.minecraft.entity.player.PlayerEntity player, String ownerName) {
-        if (player instanceof ServerPlayerEntity serverPlayer) {
-             serverPlayer.sendMessage(Text.literal(String.format(SimpleConfig.get().claimMessage, ownerName)), true);
-        }
+    private void sendFeedback(ServerPlayerEntity player, String message) {
+        player.sendMessage(Text.literal(message), true);
     }
 }

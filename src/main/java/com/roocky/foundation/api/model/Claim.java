@@ -25,6 +25,22 @@ public interface Claim {
      * @return True if the player has permission, false otherwise.
      */
     boolean hasPermission(UUID player, ClaimPermission permission);
+    
+    /**
+     * Grants a specific permission to a player.
+     * 
+     * @param player The UUID of the player.
+     * @param permission The permission to grant.
+     */
+    void grantPermission(UUID player, ClaimPermission permission);
+    
+    /**
+     * Revokes a specific permission from a player.
+     * 
+     * @param player The UUID of the player.
+     * @param permission The permission to revoke.
+     */
+    void revokePermission(UUID player, ClaimPermission permission);
 
     /**
      * @return The chunk position of this claim.

@@ -4,8 +4,10 @@ import net.fabricmc.fabric.api.event.Event;
 import net.fabricmc.fabric.api.event.EventFactory;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.math.BlockPos;
+
 import net.minecraft.world.World;
 import net.minecraft.world.explosion.Explosion;
 
@@ -98,6 +100,34 @@ public final class ClaimEvents {
                     if (result != ActionResult.PASS) return result;
                 }
                 return ActionResult.PASS;
+            });
+
+    /**
+     * Callback for chunk changes.
+     */
+    @FunctionalInterface
+    public interface ChunkChangeCallback {
+        void onChunkChange(ServerPlayerEntity player, World world, net.minecraft.util.math.ChunkPos chunkPos);
+    }
+
+    /**
+     * Fired when a player enters a chunk.
+     */
+    public static final Event<ChunkChangeCallback> ENTER_CHUNK = EventFactory.createArrayBacked(ChunkChangeCallback.class,
+            (listeners) -> (player, world, chunkPos) -> {
+                for (ChunkChangeCallback listener : listeners) {
+                    listener.onChunkChange(player, world, chunkPos);
+                }
+            });
+
+    /**
+     * Fired when a player exits a chunk.
+     */
+    public static final Event<ChunkChangeCallback> EXIT_CHUNK = EventFactory.createArrayBacked(ChunkChangeCallback.class,
+            (listeners) -> (player, world, chunkPos) -> {
+                for (ChunkChangeCallback listener : listeners) {
+                    listener.onChunkChange(player, world, chunkPos);
+                }
             });
 
     private ClaimEvents() {}
