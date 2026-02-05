@@ -79,13 +79,25 @@ public class RockMod implements ModInitializer {
                                      (world.getBlockEntity(pos) instanceof Inventory || 
                                       state.createScreenHandlerFactory(world, pos) != null);
 
-                if (isContainer) {
+                if (block instanceof EnderChestBlock) {
+                    required = ClaimPermission.ENDER_CHEST;
+                } else if (isContainer) {
                     required = ClaimPermission.CONTAINER_OPEN;
-                } else if (block instanceof ButtonBlock ||
-                           block instanceof LeverBlock ||
-                           block instanceof AbstractPressurePlateBlock ||
-                           block instanceof ComparatorBlock ||
-                           block instanceof RepeaterBlock) {
+                } else if (block instanceof ButtonBlock) {
+                    required = ClaimPermission.BUTTON_USE;
+                } else if (block instanceof LeverBlock) {
+                    required = ClaimPermission.LEVER_USE;
+                } else if (block instanceof TrapdoorBlock) {
+                    required = ClaimPermission.TRAPDOOR_OPEN;
+                } else if (block instanceof FenceGateBlock) {
+                    required = ClaimPermission.FENCE_GATE_OPEN;
+                } else if (block instanceof NoteBlock) {
+                    required = ClaimPermission.NOTE_BLOCK_USE;
+                } else if (block instanceof JukeboxBlock) {
+                    required = ClaimPermission.JUKEBOX_USE;
+                } else if (block instanceof AbstractPressurePlateBlock) {
+                    required = ClaimPermission.PRESSURE_PLATE;
+                } else if (block instanceof ComparatorBlock || block instanceof RepeaterBlock) {
                     required = ClaimPermission.INTERACT_REDSTONE;
                 }
                 
@@ -107,11 +119,17 @@ public class RockMod implements ModInitializer {
                  PermissionProvider provider = RockAPI.getProvider();
 
                  ClaimPermission required = ClaimPermission.INTERACT_ENTITY;
+
                  if (target instanceof net.minecraft.entity.passive.AbstractHorseEntity ||
                      target instanceof net.minecraft.entity.passive.PigEntity ||
-                     target instanceof net.minecraft.entity.vehicle.BoatEntity ||
-                     target instanceof net.minecraft.entity.vehicle.MinecartEntity) {
-                     required = ClaimPermission.ENTITY_RIDE;
+                     target instanceof net.minecraft.entity.passive.StriderEntity) {
+                     required = ClaimPermission.RIDE_ANIMALS;
+                 } else if (target instanceof net.minecraft.entity.vehicle.BoatEntity ||
+                            target instanceof net.minecraft.entity.vehicle.MinecartEntity) {
+                     required = ClaimPermission.VEHICLE_RIDE;
+                 } else if (target instanceof net.minecraft.entity.passive.VillagerEntity ||
+                            target instanceof net.minecraft.entity.passive.WanderingTraderEntity) {
+                     required = ClaimPermission.VILLAGER_TRADE;
                  }
 
                  if (!provider.checkPermission(serverPlayer, chunkPos, required)) {
@@ -130,7 +148,24 @@ public class RockMod implements ModInitializer {
             if (player instanceof ServerPlayerEntity serverPlayer) {
                 PermissionProvider provider = RockAPI.getProvider();
 
-                ClaimPermission required = (entity instanceof PlayerEntity) ? ClaimPermission.ENTITY_PVP : ClaimPermission.ENTITY_DAMAGE;
+                ClaimPermission required = ClaimPermission.ENTITY_DAMAGE;
+
+                if (entity instanceof PlayerEntity) {
+                    required = ClaimPermission.ENTITY_PVP;
+                } else if (entity instanceof net.minecraft.entity.mob.Monster) {
+                    required = ClaimPermission.HURT_MONSTERS;
+                } else if (entity instanceof net.minecraft.entity.passive.AnimalEntity ||
+                           entity instanceof net.minecraft.entity.passive.GolemEntity ||
+                           entity instanceof net.minecraft.entity.passive.FishEntity ||
+                           entity instanceof net.minecraft.entity.passive.SquidEntity) {
+                    required = ClaimPermission.HURT_ANIMALS;
+                } else if (entity instanceof net.minecraft.entity.vehicle.BoatEntity ||
+                           entity instanceof net.minecraft.entity.vehicle.MinecartEntity) {
+                    required = ClaimPermission.VEHICLE_BREAK;
+                } else if (entity instanceof net.minecraft.entity.decoration.painting.PaintingEntity ||
+                           entity instanceof net.minecraft.entity.decoration.ItemFrameEntity) {
+                    required = ClaimPermission.PAINTING_BREAK;
+                }
 
                 if (!provider.checkPermission(serverPlayer, chunkPos, required)) {
                     sendFeedback(serverPlayer, provider.getDenialMessage(serverPlayer, chunkPos));
