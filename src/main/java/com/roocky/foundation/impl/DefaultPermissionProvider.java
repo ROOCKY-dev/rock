@@ -14,20 +14,27 @@ public class DefaultPermissionProvider implements PermissionProvider {
         if (com.roocky.foundation.RockAPI.isBypassing(player.getUuid())) return true;
         // Op bypass
         if (player.hasPermissionLevel(2)) return true;
-        
-        String debugPrefix = "Checking " + permission + " for " + player.getName().getString() + " in " + pos + ": ";
 
         ClaimManager manager = ClaimManager.get(player.getServerWorld());
         Claim claim = manager.getClaim(pos);
 
+        if (com.roocky.foundation.RockAPI.isDebugging()) {
+            String debugPrefix = "Checking " + permission + " for " + player.getName().getString() + " in " + pos + ": ";
+            if (claim == null) {
+                com.roocky.foundation.RockAPI.log(debugPrefix + "ALLOWED (Wilderness)");
+                return true; // Wilderness is free
+            }
+
+            boolean result = claim.hasPermission(player.getUuid(), permission);
+            com.roocky.foundation.RockAPI.log(debugPrefix + (result ? "ALLOWED" : "DENIED"));
+            return result;
+        }
+
         if (claim == null) {
-            com.roocky.foundation.RockAPI.log(debugPrefix + "ALLOWED (Wilderness)");
             return true; // Wilderness is free
         }
 
-        boolean result = claim.hasPermission(player.getUuid(), permission);
-        com.roocky.foundation.RockAPI.log(debugPrefix + (result ? "ALLOWED" : "DENIED"));
-        return result;
+        return claim.hasPermission(player.getUuid(), permission);
     }
 
     @Override
