@@ -1,6 +1,7 @@
 package com.roocky.foundation.api.model;
 
 import net.minecraft.util.math.ChunkPos;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -46,4 +47,9 @@ public interface Claim {
      * @return The chunk position of this claim.
      */
     ChunkPos getPosition();
+
+    /**
+     * @return A set of UUIDs of players who have at least one permission explicitly set.
+     */
+    Set<UUID> getTrustedPlayers();
 }
