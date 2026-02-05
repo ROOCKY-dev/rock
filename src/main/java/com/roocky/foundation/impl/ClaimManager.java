@@ -19,11 +19,17 @@ import java.util.UUID;
 
 public class ClaimManager extends PersistentState {
 
+    private static final Type<ClaimManager> TYPE = new Type<>(
+            ClaimManager::new,
+            ClaimManager::createFromNbt,
+            null
+    );
+
     private final Map<ChunkPos, Claim> claims = new HashMap<>();
 
     public static ClaimManager get(ServerWorld world) {
         return world.getPersistentStateManager().getOrCreate(
-                new Type<>(ClaimManager::new, ClaimManager::createFromNbt, null),
+                TYPE,
                 "rock_claims"
         );
     }
