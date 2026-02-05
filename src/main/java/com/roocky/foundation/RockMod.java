@@ -160,14 +160,15 @@ public class RockMod implements ModInitializer {
             if (world.isClient) return ActionResult.PASS;
             if (SimpleConfig.get().enableExplosions) return ActionResult.PASS;
 
-            ChunkPos centerChunk = new ChunkPos(new net.minecraft.util.math.BlockPos((int)explosion.getPosition().x, (int)explosion.getPosition().y, (int)explosion.getPosition().z));
             com.roocky.foundation.impl.ClaimManager manager = com.roocky.foundation.impl.ClaimManager.get((net.minecraft.server.world.ServerWorld) world);
-            com.roocky.foundation.api.model.Claim claim = manager.getClaim(centerChunk);
             
-            if (claim != null) {
-               if (claim.getType() != com.roocky.foundation.api.model.ClaimType.WILDERNESS) {
-                   return ActionResult.FAIL; 
-               }
+            for (net.minecraft.util.math.BlockPos pos : explosion.getAffectedBlocks()) {
+                ChunkPos chunkPos = new ChunkPos(pos);
+                com.roocky.foundation.api.model.Claim claim = manager.getClaim(chunkPos);
+
+                if (claim != null && claim.getType() != com.roocky.foundation.api.model.ClaimType.WILDERNESS) {
+                    return ActionResult.FAIL;
+                }
             }
             return ActionResult.PASS;
         });
