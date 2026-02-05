@@ -5,11 +5,15 @@ import com.roocky.foundation.api.model.ClaimPermission;
 import com.roocky.foundation.api.service.PermissionProvider;
 import com.roocky.foundation.config.SimpleConfig;
 import net.fabricmc.api.ModInitializer;
-import net.minecraft.block.BlockState;
+import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
+import net.fabricmc.fabric.api.event.player.UseItemCallback;
+import net.minecraft.block.*;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.inventory.Inventory;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
+import net.minecraft.util.TypedActionResult;
 import net.minecraft.util.math.ChunkPos;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,12 +70,24 @@ public class RockMod implements ModInitializer {
             
             if (player instanceof ServerPlayerEntity serverPlayer) {
                 BlockState state = world.getBlockState(pos);
+                Block block = state.getBlock();
+
+                ClaimPermission required = ClaimPermission.INTERACT_BLOCK;
+
                 // Check if container
                 boolean isContainer = state.hasBlockEntity() && 
                                      (world.getBlockEntity(pos) instanceof Inventory || 
                                       state.createScreenHandlerFactory(world, pos) != null);
 
-                ClaimPermission required = isContainer ? ClaimPermission.CONTAINER_OPEN : ClaimPermission.INTERACT_BLOCK;
+                if (isContainer) {
+                    required = ClaimPermission.CONTAINER_OPEN;
+                } else if (block instanceof ButtonBlock ||
+                           block instanceof LeverBlock ||
+                           block instanceof AbstractPressurePlateBlock ||
+                           block instanceof ComparatorBlock ||
+                           block instanceof RepeaterBlock) {
+                    required = ClaimPermission.INTERACT_REDSTONE;
+                }
                 
                 PermissionProvider provider = RockAPI.getProvider();
                  if (!provider.checkPermission(serverPlayer, chunkPos, required)) {
@@ -82,14 +98,23 @@ public class RockMod implements ModInitializer {
             return ActionResult.PASS;
         });
         
-        // Entity Interact
+        // Entity Interact (Right Click)
         ClaimEvents.ENTITY_INTERACT.register((player, world, target) -> {
             if (world.isClient) return ActionResult.PASS;
             ChunkPos chunkPos = new ChunkPos(target.getBlockPos());
             
             if (player instanceof ServerPlayerEntity serverPlayer) {
                  PermissionProvider provider = RockAPI.getProvider();
-                 if (!provider.checkPermission(serverPlayer, chunkPos, ClaimPermission.INTERACT_ENTITY)) {
+
+                 ClaimPermission required = ClaimPermission.INTERACT_ENTITY;
+                 if (target instanceof net.minecraft.entity.passive.AbstractHorseEntity ||
+                     target instanceof net.minecraft.entity.passive.PigEntity ||
+                     target instanceof net.minecraft.entity.vehicle.BoatEntity ||
+                     target instanceof net.minecraft.entity.vehicle.MinecartEntity) {
+                     required = ClaimPermission.ENTITY_RIDE;
+                 }
+
+                 if (!provider.checkPermission(serverPlayer, chunkPos, required)) {
                      sendFeedback(serverPlayer, provider.getDenialMessage(serverPlayer, chunkPos));
                      return ActionResult.FAIL;
                  }
@@ -97,10 +122,40 @@ public class RockMod implements ModInitializer {
             return ActionResult.PASS;
         });
 
-        // Explosion (Logic remains here for now as it doesn't involve a player directly in the check permission method yet)
-        // Ideally we expand PermissionProvider to handle explosions, but the interface mandates a Player.
-        // For Phase 2, we keep Explosion logic "Hardcoded" to ClaimManager or add a new method to Provider later.
-        // Given instructions, we focus on Player permissions.
+        // Attack Entity (Damage / PvP)
+        AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
+            if (world.isClient) return ActionResult.PASS;
+            ChunkPos chunkPos = new ChunkPos(entity.getBlockPos());
+
+            if (player instanceof ServerPlayerEntity serverPlayer) {
+                PermissionProvider provider = RockAPI.getProvider();
+
+                ClaimPermission required = (entity instanceof PlayerEntity) ? ClaimPermission.ENTITY_PVP : ClaimPermission.ENTITY_DAMAGE;
+
+                if (!provider.checkPermission(serverPlayer, chunkPos, required)) {
+                    sendFeedback(serverPlayer, provider.getDenialMessage(serverPlayer, chunkPos));
+                    return ActionResult.FAIL;
+                }
+            }
+            return ActionResult.PASS;
+        });
+
+        // Item Use (Right click item)
+        UseItemCallback.EVENT.register((player, world, hand) -> {
+             if (world.isClient) return TypedActionResult.pass(player.getStackInHand(hand));
+             ChunkPos chunkPos = new ChunkPos(player.getBlockPos());
+
+             if (player instanceof ServerPlayerEntity serverPlayer) {
+                 PermissionProvider provider = RockAPI.getProvider();
+                 if (!provider.checkPermission(serverPlayer, chunkPos, ClaimPermission.ITEM_USE)) {
+                     sendFeedback(serverPlayer, provider.getDenialMessage(serverPlayer, chunkPos));
+                     return TypedActionResult.fail(player.getStackInHand(hand));
+                 }
+             }
+             return TypedActionResult.pass(player.getStackInHand(hand));
+        });
+
+        // Explosion
         ClaimEvents.EXPLOSION.register((world, explosion) -> {
             if (world.isClient) return ActionResult.PASS;
             if (SimpleConfig.get().enableExplosions) return ActionResult.PASS;

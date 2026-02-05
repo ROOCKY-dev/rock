@@ -33,6 +33,8 @@ public class ClaimCommand {
                         .executes(ClaimCommand::unclaimChunk))
                 .then(CommandManager.literal("info")
                         .executes(ClaimCommand::claimInfo))
+                .then(CommandManager.literal("gui")
+                        .executes(ClaimCommand::openGui))
                 .then(CommandManager.literal("trust")
                         .then(CommandManager.argument("target", EntityArgumentType.player())
                                 .executes(ctx -> trustPlayer(ctx, null)) // Default: All
@@ -116,6 +118,28 @@ public class ClaimCommand {
              // Visuals: Red for Claim (Owned)
              com.roocky.foundation.network.PacketHelper.sendVisuals(player, pos, 0xFF0000);
         }
+        return 1;
+    }
+
+    private static int openGui(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
+        ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
+        ChunkPos pos = new ChunkPos(player.getBlockPos());
+        ClaimManager manager = ClaimManager.get(player.getServerWorld());
+        Claim claim = manager.getClaim(pos);
+
+        if (claim == null) {
+            context.getSource().sendFeedback(() -> Text.literal("You must be standing in a claim to manage it.").formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        if (!claim.getOwner().equals(player.getUuid()) && !player.hasPermissionLevel(2)) {
+             if (!claim.hasPermission(player.getUuid(), ClaimPermission.MANAGE_PERMISSIONS)) {
+                 context.getSource().sendFeedback(() -> Text.literal("You do not have permission to manage this claim.").formatted(Formatting.RED), false);
+                 return 0;
+             }
+        }
+
+        com.roocky.foundation.gui.ClaimMenus.openMainMenu(player, claim);
         return 1;
     }
 

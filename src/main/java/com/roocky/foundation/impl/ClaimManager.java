@@ -42,6 +42,10 @@ public class ClaimManager extends PersistentState {
         return claims.get(pos);
     }
 
+    public void save() {
+        this.markDirty();
+    }
+
     @Override
     public NbtCompound writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
         NbtList list = new NbtList();
@@ -184,6 +188,11 @@ public class ClaimManager extends PersistentState {
         @Override
         public ChunkPos getPosition() {
             return pos;
+        }
+
+        @Override
+        public Set<UUID> getTrustedPlayers() {
+            return permissions.keySet();
         }
     }
 }
