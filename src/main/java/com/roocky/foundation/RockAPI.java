@@ -25,8 +25,8 @@ public class RockAPI {
         debugMode = debug;
     }
 
-    public static boolean isBypassing(java.util.UUID playerUuid) {
-        return bypassPlayers.contains(playerUuid);
+    public static boolean isBypassing(java.util.UUID player) {
+        return bypassPlayers.contains(player);
     }
     
     public static void setBypass(java.util.UUID player, boolean bypass) {
