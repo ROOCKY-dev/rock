@@ -31,8 +31,9 @@ public class MixinServerPlayerEntity {
         // Skip tracking if player not fully joined or logic invalid
         if (player.getWorld() == null) return;
         
-        int currentChunkX = player.getChunkPos().x;
-        int currentChunkZ = player.getChunkPos().z;
+        var currentChunkPos = player.getChunkPos();
+        int currentChunkX = currentChunkPos.x;
+        int currentChunkZ = currentChunkPos.z;
 
         if (rock$lastChunkX == Integer.MIN_VALUE) {
             // First tick initialization
